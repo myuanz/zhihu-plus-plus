@@ -119,6 +119,24 @@ fun formatRelativeTime(
     }
 }
 
+fun formatFeedActionTime(
+    epochSeconds: Long,
+    nowEpochSeconds: Long,
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
+): String {
+    val diff = nowEpochSeconds - epochSeconds
+    val dateTime = Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(timeZone)
+    val today = Instant.fromEpochSeconds(nowEpochSeconds).toLocalDateTime(timeZone).date
+    return when {
+        diff < 60 -> "刚刚"
+        diff < 3_600 -> "${diff / 60}分钟前"
+        diff < 86_400 -> "${diff / 3_600}小时前"
+        dateTime.date.toEpochDays() == today.toEpochDays() - 1 ->
+            "昨天 ${dateTime.hour.twoDigitString()}:${dateTime.minute.twoDigitString()}"
+        else -> "${(dateTime.month.ordinal + 1).twoDigitString()}-${dateTime.day.twoDigitString()}"
+    }
+}
+
 internal fun Int.twoDigitString(): String = toString().padStart(2, '0')
 
 fun extractImageUrl(attribute: (String) -> String): String? =

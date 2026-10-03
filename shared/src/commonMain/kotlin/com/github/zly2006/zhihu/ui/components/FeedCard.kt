@@ -109,6 +109,7 @@ fun FeedCard(
     horizontalPadding: Dp = 16.dp,
     menuItems: @Composable ColumnScope.(dismissMenu: () -> Unit) -> Unit = { _ -> },
     showSourceLabel: Boolean = false,
+    sourceLabel: String? = item.feed?.sourceLabel,
     /**
      * 默认点击行为：优先跳转到信息流条目的详情页；如果只能识别为外链则打开外链，否则提示暂不支持。
      */
@@ -175,6 +176,7 @@ fun FeedCard(
                     duo3CardLayout = duo3CardLayout,
                     duo3CardLargeTitle = duo3CardLargeTitle,
                     showSourceLabel = showSourceLabel,
+                    sourceLabel = sourceLabel,
                 )
             }
             HorizontalDivider(thickness = 0.3.dp)
@@ -226,6 +228,7 @@ fun FeedCard(
                         duo3CardLayout = duo3CardLayout,
                         duo3CardLargeTitle = duo3CardLargeTitle,
                         showSourceLabel = showSourceLabel,
+                        sourceLabel = sourceLabel,
                     )
                 }
             }
@@ -301,17 +304,18 @@ private fun FeedCardContent(
     duo3CardLayout: Boolean,
     duo3CardLargeTitle: Boolean,
     showSourceLabel: Boolean,
+    sourceLabel: String?,
 ) {
     val settings = rememberSettingsStore()
     val fontSizePercent = remember { settings.getInt(PREF_FONT_SIZE, 100) }
     val lineHeightPercent = remember { settings.getInt(PREF_LINE_HEIGHT, 160) }
     val navigator = LocalNavigator.current
     val visiblePinImages = pinImages.takeIf { showFeedThumbnail && !item.isFiltered }.orEmpty()
-    val sourceLabel = item.feed?.sourceLabel.takeUnless { item.isFiltered }
+    val visibleSourceLabel = sourceLabel.takeUnless { item.isFiltered }
     if (duo3CardLayout) {
         // ── 新排版（duo3）────────────────────────────────────────────────────
         if (showSourceLabel) {
-            FeedCardSourceLabel(sourceLabel)
+            FeedCardSourceLabel(visibleSourceLabel)
         }
         if (!item.title.isEmpty()) {
             val titleStyle = if (duo3CardLargeTitle) {
@@ -428,7 +432,7 @@ private fun FeedCardContent(
     } else {
         // ── 原始排版（master）────────────────────────────────────────────────
         if (showSourceLabel) {
-            FeedCardSourceLabel(sourceLabel)
+            FeedCardSourceLabel(visibleSourceLabel)
         }
         if (!item.title.isEmpty() && !item.isFiltered) {
             Row(verticalAlignment = Alignment.CenterVertically) {

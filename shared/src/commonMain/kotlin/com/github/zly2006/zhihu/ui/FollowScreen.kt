@@ -74,6 +74,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.github.zly2006.zhihu.data.DataHolder
 import com.github.zly2006.zhihu.data.Feed
+import com.github.zly2006.zhihu.data.sourceLabel
+import com.github.zly2006.zhihu.data.sourceLabelWithActionTime
 import com.github.zly2006.zhihu.data.target
 import com.github.zly2006.zhihu.navigation.LocalNavigator
 import com.github.zly2006.zhihu.navigation.Person
@@ -95,12 +97,14 @@ import com.github.zly2006.zhihu.ui.components.ProgressIndicatorFooter
 import com.github.zly2006.zhihu.ui.components.pageTurnViewportWithGuide
 import com.github.zly2006.zhihu.ui.components.rememberNestedHorizontalPagerConnection
 import com.github.zly2006.zhihu.ui.components.rememberPageTurnTarget
+import com.github.zly2006.zhihu.ui.subscreens.PREF_SHOW_FOLLOW_ACTION_TIME
 import com.github.zly2006.zhihu.ui.topLevelReselectAction
 import com.github.zly2006.zhihu.viewmodel.feed.FollowRecommendViewModel
 import com.github.zly2006.zhihu.viewmodel.feed.FollowViewModel
 import com.github.zly2006.zhihu.viewmodel.feed.RecentMomentsViewModel
 import com.github.zly2006.zhihu.viewmodel.rememberPaginationEnvironment
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 class FollowScreenData : ViewModel() {
     var selectedTabIndex by mutableIntStateOf(0)
@@ -531,6 +535,8 @@ fun FollowDynamicScreen(
     }
     val environment = rememberPaginationEnvironment(allowGuestAccess = viewModel.allowGuestAccess)
     val settings = rememberSettingsStore()
+    val enteredAt = remember { Clock.System.now().epochSeconds }
+    val showActionTime = settings.getBoolean(PREF_SHOW_FOLLOW_ACTION_TIME, false)
     val userMessages = rememberUserMessageSink()
     val showRefreshFab = remember { settings.getBoolean("showRefreshFab", true) }
     val listState = rememberLazyListState()
@@ -595,6 +601,7 @@ fun FollowDynamicScreen(
                     readingQueueSourceId = readingQueueSourceId.takeIf { isActive },
                     modifier = Modifier.testTag("follow_dynamic_item_${item.stableKey}"),
                     showSourceLabel = true,
+                    sourceLabel = if (showActionTime) item.feed?.sourceLabelWithActionTime(enteredAt) else item.feed?.sourceLabel,
                     menuItems = { dismissMenu ->
                         DropdownMenuItem(
                             text = { Text("屏蔽用户") },

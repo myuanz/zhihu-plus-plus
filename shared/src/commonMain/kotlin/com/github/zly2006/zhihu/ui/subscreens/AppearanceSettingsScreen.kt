@@ -127,6 +127,8 @@ import kotlin.time.Duration.Companion.milliseconds
 const val DUO3_CARD_LARGE_TITLE_PREFERENCE_KEY = "duo3_card_large_title"
 const val DUO3_TIQIAN_MARKDOWN_PREFERENCE_KEY = "duo3_tiqian_markdown"
 const val DUO3_TIQIAN_MATH_FONT_PREFERENCE_KEY = "duo3_tiqian_math_font"
+const val PREF_SHOW_FOLLOW_ACTION_TIME = "showFollowActionTime"
+
 const val PREF_FONT_SIZE = "contentFontSize"
 const val PREF_LINE_HEIGHT = "contentLineHeight"
 const val PREF_BLOCK_SPACING = "contentBlockSpacing"
@@ -727,6 +729,21 @@ fun AppearanceSettingsScreen(
                     settingKey = "showFeedThumbnail",
                     highlightedKey = settingKey,
                     bringIntoViewRequester = requesterFor("showFeedThumbnail"),
+                )
+
+                var showFollowActionTime by remember { mutableStateOf(settings.getBoolean(PREF_SHOW_FOLLOW_ACTION_TIME, false)) }
+                SettingItemWithSwitch(
+                    modifier = Modifier.testTag("appearance:showFollowActionTime"),
+                    title = { Text("显示关注动态时间") },
+                    description = { Text("在关注动态的发起者与动作之间显示时间。") },
+                    checked = showFollowActionTime,
+                    onCheckedChange = {
+                        showFollowActionTime = it
+                        settings.putBoolean(PREF_SHOW_FOLLOW_ACTION_TIME, it)
+                    },
+                    settingKey = PREF_SHOW_FOLLOW_ACTION_TIME,
+                    highlightedKey = settingKey,
+                    bringIntoViewRequester = requesterFor(PREF_SHOW_FOLLOW_ACTION_TIME),
                 )
 
                 SettingItemWithSwitch(

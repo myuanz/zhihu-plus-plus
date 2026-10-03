@@ -170,6 +170,7 @@ private val settingsSearchEntries = buildList {
     add(appearanceEntry("appearance.bottomSheetCorners", "禁用 popup 圆角", "评论等 popup 顶部改为直角。", DISABLE_BOTTOM_SHEET_ROUNDED_CORNERS_PREFERENCE_KEY, listOf("评论圆角", "popup", "直角")))
     add(appearanceEntry("appearance.fontScale", "字号与行高", "调整正文阅读字号和行距。", "fontScale", listOf("字体大小", "内容字体", "正文字号", "行距")))
     add(appearanceEntry("appearance.showFeedThumbnail", "显示 Feed 卡片缩略图", "控制信息流卡片图片显示。", "showFeedThumbnail", listOf("图片", "封面")))
+    add(appearanceEntry("appearance.showFollowActionTime", "显示关注动态时间", "在关注动态的发起者与动作之间显示时间。", PREF_SHOW_FOLLOW_ACTION_TIME, listOf("动作时间", "赞同时间", "发布时间")))
     add(appearanceEntry("appearance.showRefreshFab", "显示刷新 FAB 按钮", "控制首页和列表的浮动刷新按钮。", "showRefreshFab", listOf("刷新按钮", "浮动按钮")))
     add(appearanceEntry("appearance.feedCardStyle", "信息流样式", "切换卡片或分割线样式。", "feedCardStyle", listOf("Feed", "列表样式", "卡片样式", "分割线")))
     add(appearanceEntry("appearance.webviewRender", "使用 WebView 显示文章", "切换文章、回答、想法正文渲染方式。", ARTICLE_USE_WEBVIEW_PREFERENCE_KEY))

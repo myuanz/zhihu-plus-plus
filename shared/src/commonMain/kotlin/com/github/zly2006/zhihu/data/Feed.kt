@@ -20,6 +20,7 @@
 package com.github.zly2006.zhihu.data
 
 import com.github.zly2006.zhihu.data.Feed.Badge
+import com.github.zly2006.zhihu.util.formatFeedActionTime
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
@@ -365,6 +366,19 @@ val Feed.sourceLabel: String?
         is TopicFeed -> targetDescription
         else -> null
     }?.trim()?.takeIf { it.isNotEmpty() }
+
+fun Feed.sourceLabelWithActionTime(nowEpochSeconds: Long): String? {
+    val label = sourceLabel ?: return null
+    val source = this as? CommonFeed ?: return label
+    val actorName = source.actors
+        ?.singleOrNull()
+        ?.name
+        ?.takeIf { it.isNotBlank() } ?: return label
+    if (source.createdTime <= 0 || source.createdTime > nowEpochSeconds || !label.startsWith(actorName)) return label
+    val action = label.removePrefix(actorName).trim()
+    if (action.isEmpty()) return label
+    return "$actorName ${formatFeedActionTime(source.createdTime, nowEpochSeconds)} $action"
+}
 
 @Serializable
 @SerialName("feed_advert")
