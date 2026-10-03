@@ -43,7 +43,8 @@ class FeedFilterSettingsTest {
 
         assertEquals(false, settings.enableContentFilter)
         assertEquals(true, settings.reverseBlock)
-        assertEquals(true, settings.filterFollowedUserContent)
+        assertEquals(false, settings.exemptFollowedAnswer)
+        assertEquals(false, settings.exemptFollowedVoteup)
         assertEquals(false, settings.enableKeywordBlocking)
         assertEquals(false, settings.enableNlpBlocking)
         assertEquals(0.65, settings.nlpSimilarityThreshold, 0.0001)

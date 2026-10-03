@@ -434,6 +434,7 @@ data class CommonFeed(
     val promotionExtra: String? = null,
     val cursor: String = "",
     val actionText: String? = null,
+    val actors: List<Person>? = null,
 ) : Feed
 
 @Serializable

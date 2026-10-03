@@ -49,6 +49,7 @@ import com.github.zly2006.zhihu.viewmodel.filter.ContentType
 import com.github.zly2006.zhihu.viewmodel.filter.FeedContentFilterPipeline
 import com.github.zly2006.zhihu.viewmodel.filter.FeedDisplayFilterPipeline
 import com.github.zly2006.zhihu.viewmodel.filter.ForegroundReadFilterPipeline
+import com.github.zly2006.zhihu.viewmodel.filter.filterFollowFeedKeywords
 import com.github.zly2006.zhihu.viewmodel.filter.getContentFilterDatabase
 import com.github.zly2006.zhihu.viewmodel.filter.toFeedFilterSettings
 import com.github.zly2006.zhihu.viewmodel.local.LocalRecommendationEngine
@@ -247,6 +248,9 @@ class DesktopPaginationEnvironment(
             blockedFeedRecordDao = contentFilterDb.blockedFeedRecordDao(),
         ).filter(items)
     }
+
+    override suspend fun applyFollowFeedKeywordFilter(items: List<FeedDisplayItem>): List<FeedDisplayItem> =
+        filterFollowFeedKeywords(items, settingsStore.toFeedFilterSettings(), contentFilterDb)
 
     override suspend fun applyBackgroundHomeFeedFilter(items: List<FeedDisplayItem>): List<FeedDisplayItem> {
         val settings = settingsStore.toFeedFilterSettings()

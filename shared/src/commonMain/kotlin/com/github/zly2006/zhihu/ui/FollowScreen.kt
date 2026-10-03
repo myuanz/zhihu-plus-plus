@@ -87,6 +87,7 @@ import com.github.zly2006.zhihu.ui.components.FeedAuthorBlockConfirmDialog
 import com.github.zly2006.zhihu.ui.components.FeedAuthorBlockRequest
 import com.github.zly2006.zhihu.ui.components.FeedAuthorBlockType
 import com.github.zly2006.zhihu.ui.components.FeedCard
+import com.github.zly2006.zhihu.ui.components.FeedKeywordRuleDialog
 import com.github.zly2006.zhihu.ui.components.FeedPullToRefresh
 import com.github.zly2006.zhihu.ui.components.NoOpPagerNestedScrollConnection
 import com.github.zly2006.zhihu.ui.components.PaginatedList
@@ -383,16 +384,21 @@ fun FollowRecommendScreen(
         }
     }
 
+    LaunchedEffect(isActive) {
+        if (isActive && viewModel.allData.isNotEmpty()) viewModel.reapplyKeywordFilter(environment)
+    }
+
     LaunchedEffect(viewModel.errorMessage) {
         viewModel.errorMessage?.let {
             userMessages.showMessage(it, UserMessageDuration.Long)
         }
     }
 
+    var showKeywordRuleDialog by remember { mutableStateOf(false) }
     var feedAuthorBlockRequest by remember { mutableStateOf<FeedAuthorBlockRequest?>(null) }
     val pageTurnTarget = rememberPageTurnTarget(
         listState = listState,
-        enabled = isActive && feedAuthorBlockRequest == null,
+        enabled = isActive && feedAuthorBlockRequest == null && !showKeywordRuleDialog,
     )
 
     Column {
@@ -427,6 +433,13 @@ fun FollowRecommendScreen(
                                         authorInfo.second,
                                     )
                                 }
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("添加关键词规则") },
+                            onClick = {
+                                dismissMenu()
+                                showKeywordRuleDialog = true
                             },
                         )
                         val canBlockQuestionAuthor = when (item.feed?.target) {
@@ -484,6 +497,13 @@ fun FollowRecommendScreen(
             }
         }
 
+        if (showKeywordRuleDialog) {
+            FeedKeywordRuleDialog(
+                onDismiss = { showKeywordRuleDialog = false },
+                onSaved = { viewModel.reapplyKeywordFilter(environment) },
+            )
+        }
+
         FeedAuthorBlockConfirmDialog(
             request = feedAuthorBlockRequest,
             displayItems = viewModel.displayItems,
@@ -537,16 +557,21 @@ fun FollowDynamicScreen(
         }
     }
 
+    LaunchedEffect(isActive) {
+        if (isActive && viewModel.allData.isNotEmpty()) viewModel.reapplyKeywordFilter(environment)
+    }
+
     LaunchedEffect(viewModel.errorMessage) {
         viewModel.errorMessage?.let {
             userMessages.showMessage(it, UserMessageDuration.Long)
         }
     }
 
+    var showKeywordRuleDialog by remember { mutableStateOf(false) }
     var feedAuthorBlockRequest by remember { mutableStateOf<FeedAuthorBlockRequest?>(null) }
     val pageTurnTarget = rememberPageTurnTarget(
         listState = listState,
-        enabled = isActive && feedAuthorBlockRequest == null,
+        enabled = isActive && feedAuthorBlockRequest == null && !showKeywordRuleDialog,
     )
 
     Column {
@@ -582,6 +607,13 @@ fun FollowDynamicScreen(
                                         authorInfo.second,
                                     )
                                 }
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("添加关键词规则") },
+                            onClick = {
+                                dismissMenu()
+                                showKeywordRuleDialog = true
                             },
                         )
                         val canBlockQuestionAuthor = when (item.feed?.target) {
@@ -637,6 +669,13 @@ fun FollowDynamicScreen(
                     }
                 }
             }
+        }
+
+        if (showKeywordRuleDialog) {
+            FeedKeywordRuleDialog(
+                onDismiss = { showKeywordRuleDialog = false },
+                onSaved = { viewModel.reapplyKeywordFilter(environment) },
+            )
         }
 
         FeedAuthorBlockConfirmDialog(

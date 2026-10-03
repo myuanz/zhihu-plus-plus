@@ -25,12 +25,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -48,6 +51,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Tab
@@ -65,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.github.zly2006.zhihu.navigation.LocalNavigator
@@ -78,6 +83,7 @@ import com.github.zly2006.zhihu.viewmodel.filter.BlockedQuestionAuthor
 import com.github.zly2006.zhihu.viewmodel.filter.BlockedTopic
 import com.github.zly2006.zhihu.viewmodel.filter.BlockedUser
 import com.github.zly2006.zhihu.viewmodel.filter.BlocklistStats
+import com.github.zly2006.zhihu.viewmodel.filter.KeywordMatchScope
 import com.github.zly2006.zhihu.viewmodel.filter.KeywordType
 import com.github.zly2006.zhihu.viewmodel.filter.getContentFilterDatabase
 import kotlinx.coroutines.launch
@@ -159,6 +165,7 @@ fun BlocklistSettingsScreen(
     val stats = loadedStats
 
     var showAddKeywordDialog by remember { mutableStateOf(false) }
+    var keywordToEdit by remember { mutableStateOf<BlockedKeyword?>(null) }
     var showAddUserDialog by remember { mutableStateOf(false) }
     var showAddQuestionAuthorDialog by remember { mutableStateOf(false) }
     var showAddTopicDialog by remember { mutableStateOf(false) }
@@ -351,6 +358,10 @@ fun BlocklistSettingsScreen(
             when (selectedTab) {
                 0 -> BlockedKeywordsList(
                     keywords = blockedKeywords,
+                    onEditKeyword = {
+                        keywordToEdit = it
+                        showAddKeywordDialog = true
+                    },
                     onDeleteKeyword = { keyword ->
                         coroutineScope.launch {
                             try {
@@ -497,21 +508,26 @@ fun BlocklistSettingsScreen(
     // 添加关键词对话框
     if (showAddKeywordDialog) {
         AddKeywordDialog(
-            onDismiss = { showAddKeywordDialog = false },
-            onConfirm = { keyword, caseSensitive, isRegex ->
+            initialRule = keywordToEdit,
+            onDismiss = {
+                showAddKeywordDialog = false
+                keywordToEdit = null
+            },
+            onConfirm = { keyword, caseSensitive, isRegex, matchScope ->
                 coroutineScope.launch {
                     try {
                         database.blockedKeywordDao().insertKeyword(
-                            BlockedKeyword(
+                            (keywordToEdit ?: BlockedKeyword(keyword = keyword.trim())).copy(
                                 keyword = keyword.trim(),
-                                keywordType = KeywordType.EXACT_MATCH.name,
                                 caseSensitive = caseSensitive,
                                 isRegex = isRegex,
+                                matchScope = matchScope.name,
                             ),
                         )
-                        userMessages.showShortMessage("已添加关键词")
+                        userMessages.showShortMessage(if (keywordToEdit == null) "已添加关键词" else "已保存关键词")
                         loadData()
                         showAddKeywordDialog = false
+                        keywordToEdit = null
                     } catch (e: Exception) {
                         Log.e("BlocklistSettingsScreen", "Blocklist settings action failed", e)
                         userMessages.showShortMessage("添加失败: ${e.message}")
@@ -589,6 +605,7 @@ fun BlocklistSettingsScreen(
 fun BlockedKeywordsList(
     keywords: List<BlockedKeyword>,
     onDeleteKeyword: (BlockedKeyword) -> Unit,
+    onEditKeyword: (BlockedKeyword) -> Unit,
     onClearAll: () -> Unit,
 ) {
     Column(
@@ -638,10 +655,10 @@ fun BlockedKeywordsList(
             ) {
                 items(keywords, key = { it.id }) { keyword ->
                     ListItem(
-                        modifier = Modifier.testTag("blocklistSettings:keywords:item:${keyword.id}"),
+                        modifier = Modifier.testTag("blocklistSettings:keywords:item:${keyword.id}").clickable { onEditKeyword(keyword) },
                         headlineContent = { Text(keyword.keyword) },
                         supportingContent = {
-                            val options = mutableListOf<String>()
+                            val options = mutableListOf(KeywordMatchScope.valueOf(keyword.matchScope).label)
                             if (keyword.caseSensitive) options.add("区分大小写")
                             if (keyword.isRegex) options.add("正则表达式")
                             if (options.isNotEmpty()) {
@@ -765,15 +782,17 @@ private fun <T> BlockedPeopleList(
 @Composable
 fun AddKeywordDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, Boolean, Boolean) -> Unit,
+    onConfirm: (String, Boolean, Boolean, KeywordMatchScope) -> Unit,
+    initialRule: BlockedKeyword? = null,
 ) {
-    var keyword by remember { mutableStateOf("") }
-    var caseSensitive by remember { mutableStateOf(false) }
-    var isRegex by remember { mutableStateOf(false) }
+    var keyword by remember { mutableStateOf(initialRule?.keyword.orEmpty()) }
+    var caseSensitive by remember { mutableStateOf(initialRule?.caseSensitive ?: false) }
+    var isRegex by remember { mutableStateOf(initialRule?.isRegex ?: false) }
+    var matchScope by remember { mutableStateOf(initialRule?.let { KeywordMatchScope.valueOf(it.matchScope) } ?: KeywordMatchScope.TITLE) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("添加屏蔽关键词") },
+        title = { Text(if (initialRule == null) "添加屏蔽关键词" else "编辑屏蔽关键词") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -788,6 +807,24 @@ fun AddKeywordDialog(
                         .testTag(BlocklistSettingsTestTags.KEYWORD_DIALOG_INPUT),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                Text("匹配范围", style = MaterialTheme.typography.labelLarge)
+                Column(Modifier.selectableGroup()) {
+                    KeywordMatchScope.entries.forEach { scope ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .testTag("blocklistSettings:keywords:scope:${scope.name}")
+                                .selectable(selected = matchScope == scope, role = Role.RadioButton, onClick = { matchScope = scope }),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = matchScope == scope, onClick = null)
+                            Text(scope.label)
+                        }
+                    }
+                }
+                Text("正文匹配列表中已有的摘要和正文", style = MaterialTheme.typography.bodySmall)
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth(),
@@ -827,12 +864,12 @@ fun AddKeywordDialog(
                 modifier = Modifier.testTag(BlocklistSettingsTestTags.KEYWORD_DIALOG_CONFIRM),
                 onClick = {
                     if (keyword.isNotBlank()) {
-                        onConfirm(keyword, caseSensitive, isRegex)
+                        onConfirm(keyword, caseSensitive, isRegex, matchScope)
                     }
                 },
                 enabled = keyword.isNotBlank(),
             ) {
-                Text("添加")
+                Text(if (initialRule == null) "添加" else "保存")
             }
         },
         dismissButton = {
@@ -1081,3 +1118,10 @@ fun AddTopicDialog(
         },
     )
 }
+
+internal val KeywordMatchScope.label: String
+    get() = when (this) {
+        KeywordMatchScope.TITLE -> "标题"
+        KeywordMatchScope.BODY -> "正文"
+        KeywordMatchScope.TITLE_AND_BODY -> "标题和正文"
+    }

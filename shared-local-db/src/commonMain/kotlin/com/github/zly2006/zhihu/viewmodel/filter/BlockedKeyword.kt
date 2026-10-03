@@ -17,6 +17,7 @@
 
 package com.github.zly2006.zhihu.viewmodel.filter
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import kotlin.time.Clock
@@ -27,6 +28,12 @@ import kotlin.time.Clock
 enum class KeywordType {
     EXACT_MATCH, // 精确匹配（传统关键词）
     NLP_SEMANTIC, // NLP语义匹配（主题/短语）
+}
+
+enum class KeywordMatchScope {
+    TITLE,
+    BODY,
+    TITLE_AND_BODY,
 }
 
 /**
@@ -40,6 +47,8 @@ data class BlockedKeyword(
     val keywordType: String = KeywordType.EXACT_MATCH.name, // 关键词类型
     val caseSensitive: Boolean = false, // 是否区分大小写（仅精确匹配模式）
     val isRegex: Boolean = false, // 是否为正则表达式（仅精确匹配模式）
+    @ColumnInfo(defaultValue = "'TITLE_AND_BODY'")
+    val matchScope: String = KeywordMatchScope.TITLE_AND_BODY.name,
     val createdTime: Long = currentEpochMillis(), // 创建时间
 ) {
     companion object {

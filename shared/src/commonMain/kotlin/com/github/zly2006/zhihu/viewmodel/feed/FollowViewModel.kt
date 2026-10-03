@@ -26,15 +26,39 @@ import androidx.lifecycle.viewModelScope
 import com.github.zly2006.zhihu.data.Feed
 import com.github.zly2006.zhihu.data.FeedDisplayItem
 import com.github.zly2006.zhihu.data.ZhihuJson
+import com.github.zly2006.zhihu.data.flattenFeeds
 import com.github.zly2006.zhihu.data.sourceLabel
 import com.github.zly2006.zhihu.data.target
 import com.github.zly2006.zhihu.viewmodel.FeedDisplayEnvironment
+import com.github.zly2006.zhihu.viewmodel.PaginationEnvironment
 import com.github.zly2006.zhihu.viewmodel.ZhihuApiEnvironment
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonArray
 
-class FollowViewModel : BaseFeedViewModel() {
+abstract class FollowFeedViewModel : BaseFeedViewModel() {
+    suspend fun reapplyKeywordFilter(environment: PaginationEnvironment) {
+        val items = allData.toList().flattenFeeds().map { createDisplayItem(environment, it) }
+        val filtered = environment.applyFollowFeedKeywordFilter(items)
+        displayItems.clear()
+        addDisplayItems(filtered)
+    }
+
+    override fun processResponse(environment: PaginationEnvironment, data: List<Feed>, rawData: JsonArray) {
+        allData.addAll(data)
+        debugData.addAll(rawData)
+        viewModelScope.launch {
+            val loadedItems = data.flattenFeeds().map { createDisplayItem(environment, it) }
+            val filteredItems = environment.applyFollowFeedKeywordFilter(loadedItems)
+            addDisplayItems(filteredItems)
+            latestLoadedDisplayItems.value = filteredItems
+            completedPageCount++
+        }
+    }
+}
+
+class FollowViewModel : FollowFeedViewModel() {
     override val initialUrl: String
         get() = "https://www.zhihu.com/api/v3/moments?limit=10&desktop=true"
 
@@ -48,7 +72,7 @@ class FollowViewModel : BaseFeedViewModel() {
     }
 }
 
-class FollowRecommendViewModel : BaseFeedViewModel() {
+class FollowRecommendViewModel : FollowFeedViewModel() {
     override val initialUrl: String
         get() = "https://api.zhihu.com/moments_v3?feed_type=recommend"
 }

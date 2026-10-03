@@ -142,6 +142,7 @@ import com.github.zly2006.zhihu.ui.components.FeedAuthorBlockConfirmDialog
 import com.github.zly2006.zhihu.ui.components.FeedAuthorBlockRequest
 import com.github.zly2006.zhihu.ui.components.FeedAuthorBlockType
 import com.github.zly2006.zhihu.ui.components.FeedCard
+import com.github.zly2006.zhihu.ui.components.FeedKeywordRuleDialog
 import com.github.zly2006.zhihu.ui.components.FeedPullToRefresh
 import com.github.zly2006.zhihu.ui.components.MyModalBottomSheet
 import com.github.zly2006.zhihu.ui.components.PaginatedList
@@ -483,6 +484,7 @@ fun HomeScreen(
     var feedAuthorBlockRequest by remember { mutableStateOf<FeedAuthorBlockRequest?>(null) }
 
     // 按关键词屏蔽对话框
+    var showKeywordRuleDialog by remember { mutableStateOf(false) }
     var showBlockByKeywordsDialog by remember { mutableStateOf(false) }
     var feedToBlockByKeywords by remember { mutableStateOf<Pair<String, String?>?>(null) } // 二元组内容为标题和摘要。
     val pageTurnTarget = rememberPageTurnTarget(
@@ -491,6 +493,7 @@ fun HomeScreen(
             !showAccountBottomSheet &&
             !showCreateMenu &&
             feedAuthorBlockRequest == null &&
+            !showKeywordRuleDialog &&
             !showBlockByKeywordsDialog &&
             (!account.login || account.hasRequiredCookie),
     )
@@ -862,6 +865,13 @@ fun HomeScreen(
                             else -> null
                         },
                         menuItems = { dismissMenu ->
+                            DropdownMenuItem(
+                                text = { Text("添加关键词规则") },
+                                onClick = {
+                                    dismissMenu()
+                                    showKeywordRuleDialog = true
+                                },
+                            )
                             if (feedKeywordExtractionAvailable) {
                                 DropdownMenuItem(
                                     text = { Text("按关键词屏蔽") },
@@ -1091,6 +1101,16 @@ fun HomeScreen(
     )
 
     // 按关键词屏蔽对话框
+    if (showKeywordRuleDialog) {
+        FeedKeywordRuleDialog(
+            onDismiss = { showKeywordRuleDialog = false },
+            onSaved = {
+                val kept = paginationEnvironment.applyFollowFeedKeywordFilter(viewModel.displayItems.toList())
+                viewModel.displayItems.retainAll(kept.toSet())
+            },
+        )
+    }
+
     feedToBlockByKeywords?.let { (title, excerpt) ->
         BlockByKeywordsDialog(
             showDialog = showBlockByKeywordsDialog,

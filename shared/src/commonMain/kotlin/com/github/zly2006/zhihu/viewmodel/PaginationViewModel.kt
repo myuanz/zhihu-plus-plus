@@ -397,6 +397,8 @@ interface FeedDisplayEnvironment {
     suspend fun applyForegroundHomeFeedFilter(items: List<FeedDisplayItem>): List<FeedDisplayItem> = items
 
     suspend fun applyBackgroundHomeFeedFilter(items: List<FeedDisplayItem>): List<FeedDisplayItem> = items
+
+    suspend fun applyFollowFeedKeywordFilter(items: List<FeedDisplayItem>): List<FeedDisplayItem> = items
 }
 
 interface HistoryEnvironment {

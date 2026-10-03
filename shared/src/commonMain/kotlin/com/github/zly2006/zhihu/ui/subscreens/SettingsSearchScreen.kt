@@ -67,6 +67,8 @@ import com.github.zly2006.zhihu.ui.components.SettingItemGroup
 import com.github.zly2006.zhihu.ui.components.pageTurnViewportWithGuide
 import com.github.zly2006.zhihu.ui.components.rememberPageTurnTarget
 import com.github.zly2006.zhihu.viewmodel.QUALITY_FILTER_MODE_PREFERENCE_KEY
+import com.github.zly2006.zhihu.viewmodel.filter.EXEMPT_FOLLOWED_ANSWER_KEY
+import com.github.zly2006.zhihu.viewmodel.filter.EXEMPT_FOLLOWED_VOTEUP_KEY
 
 const val SETTINGS_SEARCH_INPUT_TAG = "settingsSearch.input"
 const val SETTINGS_SEARCH_RESULTS_TAG = "settingsSearch.results"
@@ -223,7 +225,8 @@ private val settingsSearchEntries = buildList {
     add(recommendEntry("recommend.loginForRecommendation", "推荐内容时登录", "获取推荐内容时是否带登录凭证。", "loginForRecommendation"))
     add(recommendEntry("recommend.qualityFilterMode", "质量屏蔽", "选择不屏蔽、显示屏蔽规则或直接隐藏低质量内容。", QUALITY_FILTER_MODE_PREFERENCE_KEY, listOf("低质量", "屏蔽规则", "隐藏")))
     add(recommendEntry("recommend.enableContentFilter", "启用智能内容过滤", "过滤重复出现但未点击内容。", "enableContentFilter"))
-    add(recommendEntry("recommend.filterFollowedUserContent", "过滤已关注用户内容", "控制是否过滤已关注用户的内容。", "filterFollowedUserContent"))
+    add(recommendEntry("recommend.exemptFollowedAnswer", "豁免关注者回答", "关键词与智能过滤保留关注者的回答。", EXEMPT_FOLLOWED_ANSWER_KEY))
+    add(recommendEntry("recommend.exemptFollowedVoteup", "豁免关注者点赞", "关键词与智能过滤保留关注者赞同的回答。", EXEMPT_FOLLOWED_VOTEUP_KEY))
     add(recommendEntry("recommend.enableKeywordBlocking", "启用关键词屏蔽", "按关键词过滤内容。", "enableKeywordBlocking", listOf("关键词", "屏蔽词")))
     add(recommendEntry("recommend.enableUserBlocking", "启用用户屏蔽", "按用户过滤内容。", "enableUserBlocking", listOf("作者屏蔽", "屏蔽用户")))
     add(recommendEntry("recommend.enableTopicBlocking", "启用主题屏蔽", "按命中主题过滤内容。", "enableTopicBlocking", listOf("话题屏蔽", "屏蔽话题")))

@@ -76,6 +76,7 @@ import com.github.zly2006.zhihu.viewmodel.filter.FeedDisplayFilterPipeline
 import com.github.zly2006.zhihu.viewmodel.filter.ForegroundReadFilterPipeline
 import com.github.zly2006.zhihu.viewmodel.filter.androidKeywordSemanticMatcher
 import com.github.zly2006.zhihu.viewmodel.filter.contentFilterSettings
+import com.github.zly2006.zhihu.viewmodel.filter.filterFollowFeedKeywords
 import com.github.zly2006.zhihu.viewmodel.filter.getContentFilterDatabase
 import com.github.zly2006.zhihu.viewmodel.local.LocalRecommendationEngine
 import com.github.zly2006.zhihu.viewmodel.local.buildLocalRecommendationEngine
@@ -356,6 +357,9 @@ open class SharedAndroidPaginationEnvironment(
             blockedFeedRecordDao = filterDatabase.blockedFeedRecordDao(),
         ).filter(items)
     }
+
+    override suspend fun applyFollowFeedKeywordFilter(items: List<FeedDisplayItem>): List<FeedDisplayItem> =
+        filterFollowFeedKeywords(items, context.contentFilterSettings(), getContentFilterDatabase(context))
 
     override suspend fun applyBackgroundHomeFeedFilter(items: List<FeedDisplayItem>): List<FeedDisplayItem> {
         val filterSettings = context.contentFilterSettings()

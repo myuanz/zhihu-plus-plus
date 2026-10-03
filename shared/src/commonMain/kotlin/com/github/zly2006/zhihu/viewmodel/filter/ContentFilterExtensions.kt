@@ -19,6 +19,7 @@ package com.github.zly2006.zhihu.viewmodel.filter
 
 import com.fleeksoft.ksoup.Ksoup
 import com.github.zly2006.zhihu.data.AdvertisementFeed
+import com.github.zly2006.zhihu.data.CommonFeed
 import com.github.zly2006.zhihu.data.DataHolder
 import com.github.zly2006.zhihu.data.FeedDisplayItem
 import com.github.zly2006.zhihu.data.navDestination
@@ -61,18 +62,23 @@ class ForegroundReadFilterPipeline(
         itemIdentityPairs.forEach { (item, identity) ->
             val isViewed = ContentViewRecord.generateId(identity.type, identity.id) in viewedContentIds ||
                 "${identity.type}:${identity.id}" in openedContentKeys
-            val isFollowing = item.feed
-                ?.target
-                ?.author
-                ?.isFollowing ?: false
+            val isExempt = settings.isFollowExempt(
+                identity.type,
+                item.feed
+                    ?.target
+                    ?.author
+                    ?.isFollowing == true ||
+                    item.raw?.author?.isFollowing == true,
+                item.isFollowedVoteup,
+            )
             val isLowQualityAndroidFeed = isLowQualityForegroundFeed(item)
 
-            if (isFollowing || (!isViewed && !isLowQualityAndroidFeed)) {
+            if (isExempt || (!isViewed && !isLowQualityAndroidFeed)) {
                 keptItems.add(item)
                 contentFilterManager.recordContentView(identity.type, identity.id)
             } else {
                 blockedItems.add(
-                    item.toFilterableContent(identity, DataHolder.DummyContent) to "已读过且未关注作者",
+                    item.toFilterableContent(identity, item.raw ?: DataHolder.DummyContent) to "智能内容过滤",
                 )
             }
         }
@@ -124,18 +130,9 @@ class FeedContentFilterPipeline(
             filteredContents = kept
         }
 
-        if (settings.enableKeywordBlocking) {
-            val exactKeywords = blockedKeywordDao
-                .getAllKeywords()
-                .filter { it.getKeywordTypeEnum() == KeywordType.EXACT_MATCH }
-            val (kept, removed) = filteredContents.partition { content ->
-                !containsBlockedKeyword(content.title, exactKeywords) &&
-                    !containsBlockedKeyword(content.summary, exactKeywords) &&
-                    !containsBlockedKeyword(content.content, exactKeywords)
-            }
-            removed.forEach { blocked.add(it to "关键词屏蔽") }
-            filteredContents = kept
-        }
+        val keywordResult = FeedKeywordFilterPipeline(settings, blockedKeywordDao).filter(filteredContents)
+        blocked.addAll(keywordResult.blocked)
+        filteredContents = keywordResult.kept
 
         if (settings.enableNlpBlocking) {
             val finalFilteredContents = mutableListOf<FilterableContent>()
@@ -196,28 +193,63 @@ class FeedContentFilterPipeline(
     }
 }
 
+/** 首页内容过滤和关注流共用的本地关键词匹配 */
+class FeedKeywordFilterPipeline(
+    private val settings: FeedFilterSettings,
+    private val keywordDao: BlockedKeywordDao,
+) {
+    suspend fun filter(contents: List<FilterableContent>): FeedContentFilterResult {
+        if (!settings.enableKeywordBlocking || settings.reverseBlock) {
+            return FeedContentFilterResult(contents, emptyList())
+        }
+        val keywords = keywordDao.getAllKeywords().filter { it.getKeywordTypeEnum() == KeywordType.EXACT_MATCH }
+        val (kept, removed) = contents.partition { content ->
+            settings.isFollowExempt(content.contentType, content.isFollowing, content.isFollowedVoteup) ||
+                keywords.none { keyword ->
+                    val scope = KeywordMatchScope.valueOf(keyword.matchScope)
+                    (scope != KeywordMatchScope.BODY && containsBlockedKeyword(content.title, keyword)) ||
+                        (
+                            scope != KeywordMatchScope.TITLE &&
+                                (containsBlockedKeyword(content.summary, keyword) || containsBlockedKeyword(content.content, keyword))
+                        )
+                }
+        }
+        return FeedContentFilterResult(kept, removed.map { it to "关键词屏蔽" })
+    }
+}
+
+suspend fun filterFollowFeedKeywords(
+    items: List<FeedDisplayItem>,
+    settings: FeedFilterSettings,
+    database: ContentFilterDatabase,
+): List<FeedDisplayItem> {
+    val snapshots = items.map { it.toFilterableContent(it.resolveContentIdentity(), it.raw ?: DataHolder.DummyContent) }
+    val result = FeedKeywordFilterPipeline(settings, database.blockedKeywordDao()).filter(snapshots)
+    if (result.blocked.isNotEmpty()) saveBlockedFeedRecords(database.blockedFeedRecordDao(), result.blocked)
+    val kept = result.kept.toSet()
+    return items.filterIndexed { index, _ -> snapshots[index] in kept }
+}
+
 private fun containsBlockedKeyword(
     text: String?,
-    keywords: List<BlockedKeyword>,
+    blockedKeyword: BlockedKeyword,
 ): Boolean {
     if (text.isNullOrBlank()) return false
 
-    return keywords.any { blockedKeyword ->
-        runCatching {
-            when {
-                blockedKeyword.isRegex -> {
-                    val pattern = if (blockedKeyword.caseSensitive) {
-                        Regex(blockedKeyword.keyword)
-                    } else {
-                        Regex(blockedKeyword.keyword, RegexOption.IGNORE_CASE)
-                    }
-                    pattern.containsMatchIn(text)
+    return runCatching {
+        when {
+            blockedKeyword.isRegex -> {
+                val pattern = if (blockedKeyword.caseSensitive) {
+                    Regex(blockedKeyword.keyword)
+                } else {
+                    Regex(blockedKeyword.keyword, RegexOption.IGNORE_CASE)
                 }
-                blockedKeyword.caseSensitive -> text.contains(blockedKeyword.keyword)
-                else -> text.contains(blockedKeyword.keyword, ignoreCase = true)
+                pattern.containsMatchIn(text)
             }
-        }.getOrDefault(false)
-    }
+            blockedKeyword.caseSensitive -> text.contains(blockedKeyword.keyword)
+            else -> text.contains(blockedKeyword.keyword, ignoreCase = true)
+        }
+    }.getOrDefault(false)
 }
 
 fun interface ContentDetailProvider {
@@ -231,19 +263,8 @@ class FeedDisplayFilterPipeline(
     private val blockedFeedRecordDao: BlockedFeedRecordDao,
 ) {
     suspend fun filter(items: List<FeedDisplayItem>): List<FeedDisplayItem> {
-        val (followedUserItems, otherItems) = if (!settings.filterFollowedUserContent) {
-            items.partition { item ->
-                item.feed
-                    ?.target
-                    ?.author
-                    ?.isFollowing == true
-            }
-        } else {
-            emptyList<FeedDisplayItem>() to items
-        }
-
         val itemToFilterableMap = coroutineScope {
-            otherItems
+            items
                 .map { item ->
                     async {
                         val identity = item.resolveContentIdentity()
@@ -285,7 +306,7 @@ class FeedDisplayFilterPipeline(
             filterable.contentId to Pair(item, filterable.raw)
         }
 
-        val filteredOtherItems = otherItems.mapNotNull { item ->
+        val filteredOtherItems = items.mapNotNull { item ->
             val contentId = item.resolveContentIdentity().id
             if (contentId in filteredContentIds) {
                 val (_, raw) = itemToRawMap[contentId] ?: (null to null)
@@ -300,13 +321,23 @@ class FeedDisplayFilterPipeline(
             saveBlockedFeedRecords(blockedFeedRecordDao, allBlocked)
         }
 
-        return (followedUserItems + filteredOtherItems).filterDetailsKeywords()
+        return filteredOtherItems.filterDetailsKeywords()
     }
 
-    private suspend fun resolveRawContent(item: FeedDisplayItem): DataHolder.Content = when (val dest = item.navDestination) {
-        is Article -> contentDetailProvider.get(dest) ?: DataHolder.DummyContent
-        is Pin -> contentDetailProvider.get(dest) ?: DataHolder.DummyContent
-        else -> DataHolder.DummyContent
+    private suspend fun resolveRawContent(item: FeedDisplayItem): DataHolder.Content {
+        // 关注作者的条目过去跳过整个后台过滤；新增关键词判断仅使用已有数据，保持原请求预算。
+        if (item.feed
+                ?.target
+                ?.author
+                ?.isFollowing == true
+        ) {
+            return item.raw ?: DataHolder.DummyContent
+        }
+        return when (val dest = item.navDestination) {
+            is Article -> contentDetailProvider.get(dest) ?: DataHolder.DummyContent
+            is Pin -> contentDetailProvider.get(dest) ?: DataHolder.DummyContent
+            else -> DataHolder.DummyContent
+        }
     }
 
     private fun List<FeedDisplayItem>.filterDetailsKeywords(): List<FeedDisplayItem> = filter { item ->
@@ -372,6 +403,7 @@ data class FilterableContent(
     val contentType: String,
     val raw: DataHolder.Content,
     val isFollowing: Boolean = false,
+    val isFollowedVoteup: Boolean = false,
     val questionId: Long? = null,
     val url: String? = null,
     val feedJson: String? = null,
@@ -411,7 +443,8 @@ fun FeedDisplayItem.toFilterableContent(
     contentId = identity.id,
     contentType = identity.type,
     raw = rawContent,
-    isFollowing = rawContent.author?.isFollowing ?: false,
+    isFollowing = feed?.target?.author?.isFollowing == true || rawContent.author?.isFollowing == true,
+    isFollowedVoteup = isFollowedVoteup,
     questionId = (rawContent as? DataHolder.Answer)?.question?.id,
     questionAuthorName = feed?.target?.questionAuthor?.name ?: when (rawContent) {
         is DataHolder.Answer -> rawContent.question.author?.name
@@ -493,7 +526,8 @@ private fun getLinkBasedAdReason(
 data class FeedFilterSettings(
     val enableContentFilter: Boolean = true,
     val reverseBlock: Boolean = false,
-    val filterFollowedUserContent: Boolean = false,
+    val exemptFollowedVoteup: Boolean = false,
+    val exemptFollowedAnswer: Boolean = true,
     val enableKeywordBlocking: Boolean = true,
     val enableNlpBlocking: Boolean = true,
     val nlpSimilarityThreshold: Double = 0.8,
@@ -503,10 +537,24 @@ data class FeedFilterSettings(
     val adBlockSettings: FeedAdBlockSettings = FeedAdBlockSettings(),
 )
 
+const val EXEMPT_FOLLOWED_VOTEUP_KEY = "exemptFollowedVoteup"
+const val EXEMPT_FOLLOWED_ANSWER_KEY = "exemptFollowedAnswer"
+
+// 只使用当前条目已解码的来源和关注关系；缺少来源时不推测，也不追加请求。
+private val FeedDisplayItem.isFollowedVoteup: Boolean
+    get() = (feed as? CommonFeed)?.let { source ->
+        source.verb == "MEMBER_VOTEUP_ANSWER" && source.actors.orEmpty().any { it.isFollowing }
+    } == true
+
+fun FeedFilterSettings.isFollowExempt(contentType: String, isFollowing: Boolean, isFollowedVoteup: Boolean): Boolean =
+    contentType == ContentType.ANSWER &&
+        ((exemptFollowedAnswer && isFollowing) || (exemptFollowedVoteup && isFollowedVoteup))
+
 fun SettingsStore.toFeedFilterSettings(): FeedFilterSettings = FeedFilterSettings(
     enableContentFilter = getBoolean("enableContentFilter", true),
     reverseBlock = getBoolean("reverseBlock", false),
-    filterFollowedUserContent = getBoolean("filterFollowedUserContent", false),
+    exemptFollowedVoteup = getBoolean(EXEMPT_FOLLOWED_VOTEUP_KEY, false),
+    exemptFollowedAnswer = getBoolean(EXEMPT_FOLLOWED_ANSWER_KEY, !getBoolean("filterFollowedUserContent", false)),
     enableKeywordBlocking = getBoolean("enableKeywordBlocking", true),
     enableNlpBlocking = getBoolean("enableNLPBlocking", true),
     nlpSimilarityThreshold = getFloat("nlpSimilarityThreshold", 0.8f).toDouble(),

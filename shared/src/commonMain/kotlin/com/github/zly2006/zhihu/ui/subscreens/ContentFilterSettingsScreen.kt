@@ -86,7 +86,10 @@ import com.github.zly2006.zhihu.viewmodel.QUESTION_FOLLOWERS_THRESHOLD_PREFERENC
 import com.github.zly2006.zhihu.viewmodel.QualityFilterMode
 import com.github.zly2006.zhihu.viewmodel.VIDEO_FOLLOWERS_THRESHOLD_PREFERENCE_KEY
 import com.github.zly2006.zhihu.viewmodel.VIDEO_VOTE_THRESHOLD_PREFERENCE_KEY
+import com.github.zly2006.zhihu.viewmodel.filter.EXEMPT_FOLLOWED_ANSWER_KEY
+import com.github.zly2006.zhihu.viewmodel.filter.EXEMPT_FOLLOWED_VOTEUP_KEY
 import com.github.zly2006.zhihu.viewmodel.filter.getContentFilterDatabase
+import com.github.zly2006.zhihu.viewmodel.filter.toFeedFilterSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
@@ -407,19 +410,36 @@ fun ContentFilterSettingsScreen(
                     settingKey = "enableContentFilter",
                     highlightedKey = highlightedSetting,
                 )
+            }
 
-                val filterFollowedUserContent = remember { mutableStateOf(settings.getBoolean("filterFollowedUserContent", false)) }
+            SettingItemGroup(title = "关注内容豁免", footer = {
+                Text("同时适用于关键词屏蔽和智能内容过滤；作者、话题、语义及广告屏蔽仍独立生效。", style = MaterialTheme.typography.bodySmall)
+            }) {
+                val exemptions = remember { settings.toFeedFilterSettings() }
+                var exemptAnswer by remember { mutableStateOf(exemptions.exemptFollowedAnswer) }
+                var exemptVoteup by remember { mutableStateOf(exemptions.exemptFollowedVoteup) }
                 SettingItemWithSwitch(
-                    modifier = Modifier.testTag("contentFilterSettings:filterFollowedUserContent"),
-                    title = { Text("过滤已关注用户内容") },
-                    description = { Text("是否对已关注用户的内容也应用过滤规则。关闭此选项可确保关注用户的内容始终显示") },
-                    checked = filterFollowedUserContent.value,
+                    modifier = Modifier.testTag("contentFilterSettings:exemptFollowedVoteup"),
+                    title = { Text("豁免关注者点赞") },
+                    description = { Text("保留你关注的人赞同的回答，仅在当前条目提供点赞来源和关注关系时生效") },
+                    checked = exemptVoteup,
                     onCheckedChange = {
-                        filterFollowedUserContent.value = it
-                        settings.putBoolean("filterFollowedUserContent", it)
+                        exemptVoteup = it
+                        settings.putBoolean(EXEMPT_FOLLOWED_VOTEUP_KEY, it)
                     },
-                    enabled = enableContentFilter.value,
-                    settingKey = "filterFollowedUserContent",
+                    settingKey = EXEMPT_FOLLOWED_VOTEUP_KEY,
+                    highlightedKey = highlightedSetting,
+                )
+                SettingItemWithSwitch(
+                    modifier = Modifier.testTag("contentFilterSettings:exemptFollowedAnswer"),
+                    title = { Text("豁免关注者回答") },
+                    description = { Text("保留你关注的人写的回答") },
+                    checked = exemptAnswer,
+                    onCheckedChange = {
+                        exemptAnswer = it
+                        settings.putBoolean(EXEMPT_FOLLOWED_ANSWER_KEY, it)
+                    },
+                    settingKey = EXEMPT_FOLLOWED_ANSWER_KEY,
                     highlightedKey = highlightedSetting,
                 )
             }

@@ -70,7 +70,7 @@ class ForegroundReadFilterPipelineTest {
 
         assertEquals(emptyList(), result)
         assertEquals(
-            listOf("已读过且未关注作者"),
+            listOf("智能内容过滤"),
             fixture.database
                 .blockedFeedRecordDao()
                 .observeAll()
@@ -120,8 +120,8 @@ class ForegroundReadFilterPipelineTest {
     @Test
     fun keepsFollowedItemEvenWhenAlreadyViewedOrLowQuality() = runTest {
         val fixture = fixture()
-        val item = item("followed", 1, details = "1 分钟前", isFollowing = true)
-        fixture.manager.recordContentView("article", "1")
+        val item = item("followed", 1, details = "1 分钟前", isFollowing = true, isAnswer = true)
+        fixture.manager.recordContentView("answer", "1")
 
         val result = fixture.pipeline().filter(listOf(item))
 
@@ -190,19 +190,29 @@ class ForegroundReadFilterPipelineTest {
         id: Long,
         details: String = "",
         isFollowing: Boolean = false,
+        isAnswer: Boolean = false,
     ): FeedDisplayItem = FeedDisplayItem(
         title = title,
         summary = null,
         details = details,
         feed = CommonFeed(
-            target = Feed.ArticleTarget(
-                id = id,
-                url = "",
-                author = person(isFollowing),
-                title = title,
-            ),
+            target = if (isAnswer) {
+                Feed.AnswerTarget(
+                    id = id,
+                    url = "",
+                    author = person(isFollowing),
+                    question = Feed.QuestionTarget(id = id, _title = title, type = "question", url = ""),
+                )
+            } else {
+                Feed.ArticleTarget(
+                    id = id,
+                    url = "",
+                    author = person(isFollowing),
+                    title = title,
+                )
+            },
         ),
-        navDestinationJson = Article(type = ArticleType.Article, id = id).toFeedDisplayItemNavDestinationJson(),
+        navDestinationJson = Article(type = if (isAnswer) ArticleType.Answer else ArticleType.Article, id = id).toFeedDisplayItemNavDestinationJson(),
     )
 
     private fun person(isFollowing: Boolean): Person = Person(

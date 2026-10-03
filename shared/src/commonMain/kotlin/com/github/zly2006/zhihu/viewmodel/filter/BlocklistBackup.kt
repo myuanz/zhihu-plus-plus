@@ -23,7 +23,7 @@ import kotlin.time.Clock
 
 @Serializable
 data class BlocklistBackup(
-    val version: Int = 3,
+    val version: Int = 4,
     val exportTime: Long = Clock.System.now().toEpochMilliseconds(),
     val keywords: List<KeywordBackup> = emptyList(),
     val nlpKeywords: List<NlpKeywordBackup> = emptyList(),
@@ -37,6 +37,7 @@ data class KeywordBackup(
     val keyword: String,
     val caseSensitive: Boolean = false,
     val isRegex: Boolean = false,
+    val matchScope: String = KeywordMatchScope.TITLE_AND_BODY.name,
 )
 
 @Serializable
@@ -84,7 +85,7 @@ suspend fun encodeBlocklistBackup(
     val backup = BlocklistBackup(
         keywords = allKeywords
             .filter { it.getKeywordTypeEnum() == KeywordType.EXACT_MATCH }
-            .map { KeywordBackup(it.keyword, it.caseSensitive, it.isRegex) },
+            .map { KeywordBackup(it.keyword, it.caseSensitive, it.isRegex, it.matchScope) },
         nlpKeywords = allKeywords
             .filter { it.getKeywordTypeEnum() == KeywordType.NLP_SEMANTIC }
             .map { NlpKeywordBackup(it.keyword) },
@@ -112,6 +113,7 @@ suspend fun importBlocklistBackupFromJsonText(
                 keywordType = KeywordType.EXACT_MATCH.name,
                 caseSensitive = kw.caseSensitive,
                 isRegex = kw.isRegex,
+                matchScope = KeywordMatchScope.valueOf(kw.matchScope).name,
             ),
         )
     }
